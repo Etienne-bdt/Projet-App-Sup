@@ -36,3 +36,34 @@ class Self_Attn(nn.Module):
             return out ,attention
         else:
             return out
+
+class Convolutional_Block(nn.Module):
+    def __init__(self, in_channels, out_channels):
+        super(Convolutional_Block, self).__init__()
+        
+        #on ne fait pas de rétro action pour l' instant!
+        
+        self.conv1 = nn.Conv2d(in_channels, out_channels, 
+                               kernel_size = 3, padding = 1)
+        self.batch_norm1 = nn.BatchNorm2d(out_channels)
+        self.relu1 = nn.ReLU()
+        ()
+        
+        self.conv2 = nn.Conv2d(in_channels, out_channels,
+                               kernel_size =3, padding = 1)
+        self.batch_norm2 = nn.BatchNorm2d(out_channels)
+        self.relu2 = nn.ReLU()
+        
+    def forward(self,x):
+        
+        conv_1 = self.conv1(x)
+        batch_norm_1 = self.batch_norm1(conv_1)
+        relu_1 = self.relu1(batch_norm_1)
+        
+        conv_2 = self.conv_2(relu_1)
+        batch_norm_2 = self.batch_norm_2(conv_2)
+        relu_2 = self.relu2(batch_norm_2)
+        
+        output = relu_2
+
+        return output

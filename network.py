@@ -47,6 +47,9 @@ class Modele(nn.Module):
     # SIGMOID
         self.sigmoid = nn.Sigmoid()
         
+        #We are technically doing a classification task so we need to add a linear layer to get the final output
+        self.linear = nn.Linear(128*128, 1)
+    
 
     def forward(self, image1, image2):
         
@@ -97,6 +100,9 @@ class Modele(nn.Module):
         upsampling4 =self.upsampling(conv_block_4_dec)
         conv_block_5_dec=self.convolutional_block_decodeur5(upsampling4)
         
-        output_final = self.sigmoid(conv_block_5_dec)
+        output_cnn = self.sigmoid(conv_block_5_dec)
 
-        return output_final, mask
+        flat = output_cnn.view(-1, 128*128)
+        output_final = self.sigmoid(self.linear(flat))
+        mask_out = output_final.view(-1, 1, 128, 128)
+        return mask_out, mask

@@ -18,8 +18,17 @@ def register_images(csv_name, output_path="./", data_path="./") -> None:
     print("Image registered in CSV file")
     return None
 
+def split_dataset(percentage=80, dataset="data.csv"):
+    data = pd.read_csv(dataset)
+    #Shuffle the data
+    train = data.sample(frac=percentage/100)
+    val = data.drop(train.index)
+    train.to_csv("train.csv", index=False)
+    val.to_csv("val.csv", index=False)
+
 def main():
     register_images("data.csv", data_path="./data")
+    split_dataset(percentage=80, dataset="data.csv")
 
 if __name__ == "__main__":
     main()

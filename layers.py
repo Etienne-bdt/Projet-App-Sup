@@ -44,7 +44,7 @@ class Convolutional_Block(nn.Module):
         #on ne fait pas de rétro action pour l' instant!
         
         self.conv1 = nn.Conv2d(in_channels, out_channels, 
-                               kernel_size = 3, padding = 1)
+                               kernel_size = 3, padding = "same")
         self.batch_norm1 = nn.BatchNorm2d(out_channels)
         self.relu1 = nn.ReLU()
         

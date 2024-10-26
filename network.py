@@ -64,9 +64,6 @@ class Modele(nn.Module):
         
         conv_block_4_im1 = self.convolutional_block4(avg_pool_3_im1)
         avg_pool_4_im1 = self.avg_pool4(conv_block_4_im1)
-        print(avg_pool_1_im1.shape)
-        print(avg_pool_2_im1.shape)
-        print(avg_pool_3_im1.shape)
         
         # Encode image 2
         conv_block_1_im2 = self.convolutional_block1(image2)

@@ -47,8 +47,7 @@ class Modele(nn.Module):
     # SIGMOID
         self.sigmoid = nn.Sigmoid()
         
-        #We are technically doing a classification task so we need to add a linear layer to get the final output
-        self.linear = nn.Linear(128*128, 128*128)
+        
     
 
     def forward(self, image1, image2):
@@ -102,7 +101,4 @@ class Modele(nn.Module):
         
         output_cnn = self.sigmoid(conv_block_5_dec)
 
-        flat = output_cnn.view(-1, 128*128)
-        output_final = self.sigmoid(self.linear(flat))
-        mask_out = output_final.view(-1, 1, 128, 128)
-        return mask_out, mask
+        return output_cnn, mask

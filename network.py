@@ -7,7 +7,7 @@ import torch.nn.functional as F
 from layers import Convolutional_Block, Self_Attn
 
 class Modele(nn.Module):
-    def __init__(self, input_shape = (256, 256), in_channels = 3, out_channels = 40):
+    def __init__(self, input_shape = (256, 256), in_channels = 3, out_channels = 32):
         super(Modele, self).__init__()
     
     # ENCODEUR
@@ -28,7 +28,7 @@ class Modele(nn.Module):
         
         
     # ATTENTION BLOCK
-        self.attention_block = Self_Attn (in_dim = out_channels * 8)
+        self.attention_block = Self_Attn(in_dim = out_channels * 16)
                 
     # DECODEUR
         
@@ -75,11 +75,13 @@ class Modele(nn.Module):
         
         conv_block_4_im2 = self.convolutional_block4(avg_pool_3_im2)
         
-        output_encoder_combined = conv_block_4_im1 + conv_block_4_im2
+        output_encoder_combined = torch.concat(conv_block_4_im1, conv_block_4_im2, dim=1) #Concat on channels
         
         # Attention : image 1 + image 2
         attention = self.attention_block(output_encoder_combined) # MAYBE WE NEED TO CONCATENATE RATHEN THAN JUST ADDED THE TWO TERMS
-        
+        #C'est pas un maybe, il faut le faire comme ca lol
+
+
         # DECODEUR
         
         conv_block_1_dec = self.convolutional_block_decodeur1(attention)

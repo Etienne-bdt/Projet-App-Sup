@@ -48,7 +48,7 @@ class Modele(nn.Module):
         self.sigmoid = nn.Sigmoid()
         
         #We are technically doing a classification task so we need to add a linear layer to get the final output
-        self.linear = nn.Linear(128*128, 1)
+        self.linear = nn.Linear(128*128, 128*128)
     
 
     def forward(self, image1, image2):

@@ -48,7 +48,7 @@ class Modele(nn.Module):
         #upsampling pour augmenter taille puis pour les channels: (conv ou dedans on divise par 2 le nombre de channels) 
         
     # SIGMOID
-        self.sigmoid = nn.Sigmoid()
+        self.sigmoid = nn.Hardsigmoid()
         
 
     def forward(self, image1, image2):

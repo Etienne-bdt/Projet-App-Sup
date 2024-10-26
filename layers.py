@@ -48,12 +48,20 @@ class Convolutional_Block(nn.Module):
         self.batch_norm1 = nn.BatchNorm2d(out_channels)
         self.relu1 = nn.ReLU()
         
+        self.conv2 = nn.Conv2d(out_channels, out_channels, 
+                               kernel_size = 3, padding = "same")
+        self.batch_norm2 = nn.BatchNorm2d(out_channels)
+        self.relu2 = nn.ReLU()
+
     def forward(self,x):
         
         conv_1 = self.conv1(x)
         batch_norm_1 = self.batch_norm1(conv_1)
         relu_1 = self.relu1(batch_norm_1)
         
-        output = relu_1
+        conv_2 = self.conv2(relu_1)
+        batch_norm_2 = self.batch_norm2(conv_2)
+
+        output = self.relu2(conv_1 + batch_norm_2)
 
         return output

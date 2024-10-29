@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from layers import Convolutional_Block, Self_Attn
+from layers import Convolutional_Block, Self_Attn, Conv, DeConv
 
 class Modele(nn.Module):
     def __init__(self, input_shape = (256, 256), in_channels = 3, out_channels = 32):
@@ -12,6 +12,36 @@ class Modele(nn.Module):
     
     # ENCODEUR
         # BLOC 1
+        self.c1 = Conv(6,16)
+        self.c2 = Conv(16,16)
+
+        self.c3 = Conv(16,32)
+        self.c4 = Conv(32,32)
+
+        self.c5 = Conv(32,64)
+        self.c6 = Conv(64,64)
+        self.c7 = Conv(64,64)
+
+        self.c8 = Conv(64,128)
+        self.c9 = Conv(128,128)
+        self.c10 = Conv(128,128)
+
+        self.c11 = DeConv(128,128)
+        self.c12 = DeConv(128,128)
+        self.c13 = DeConv(128,64)
+
+        self.c14 = DeConv(64,64)
+        self.c16 = DeConv(64,32)
+
+        self.c17 = DeConv(32,32)
+        self.c19 = DeConv(32,16)
+
+        self.c20 = DeConv(16,16)
+        self.c21 = DeConv(16,2)
+
+        self.logsoftmax = nn.LogSoftmax(dim=1)
+
+
         self.convolutional_block1 = Convolutional_Block(in_channels, out_channels)
         self.avg_pool = nn.AdaptiveAvgPool2d((128,128)) #output_size # pour le downsampling
         
@@ -51,7 +81,7 @@ class Modele(nn.Module):
     
 
     def forward(self, image1, image2):
-        
+        """
         # Encode image 1
         conv_block_1_im1 = self.convolutional_block1(image1)
         avg_pool_1_im1 = self.avg_pool(conv_block_1_im1)
@@ -101,4 +131,28 @@ class Modele(nn.Module):
         
         output_cnn = self.sigmoid(conv_block_5_dec)
 
-        return output_cnn, mask
+        return output_cnn, mask"""
+
+
+        x = torch.cat((image1, image2), 1)
+        x = self.c1(x)
+        x = self.c2(x)
+        x = self.c3(x)
+        x = self.c4(x)
+        x = self.c5(x)
+        x = self.c6(x)
+        x = self.c7(x)
+        x = self.c8(x)
+        x = self.c9(x)
+        x = self.c10(x)
+        x = self.c11(x)
+        x = self.c12(x)
+        x = self.c13(x)
+        x = self.c14(x)
+        x = self.c16(x)
+        x = self.c17(x)
+        x = self.c19(x)
+        x = self.c20(x)
+        x = self.c21(x)
+        x = self.logsoftmax(x)
+        return x

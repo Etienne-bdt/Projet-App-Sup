@@ -65,3 +65,33 @@ class Convolutional_Block(nn.Module):
         output = self.relu2(conv_1 + batch_norm_2)
 
         return output
+    
+class Conv(nn.Module):
+    def __init__(self, in_cn, out_cn):
+        super().__init__()
+        self.conv = nn.Conv2d(in_cn, out_cn, kernel_size=3, padding=1)
+        self.bn = nn.BatchNorm2d(out_cn)
+        self.relu = nn.ReLU()
+        self.dropout = nn.Dropout2d(p=0.2)
+
+    def forward(self, x):
+        x = self.conv(x)
+        x = self.bn(x)
+        x = self.relu(x)
+        x = self.dropout(x)
+        return x
+    
+class DeConv(nn.Module):
+    def __init__(self, in_cn, out_cn):
+        super().__init__()
+        self.deconv = nn.ConvTranspose2d(in_cn, out_cn, kernel_size=2, stride=2)
+        self.bn = nn.BatchNorm2d(out_cn)
+        self.relu = nn.ReLU()
+        self.dropout = nn.Dropout2d(p=0.2)
+
+    def forward(self, x):
+        x = self.deconv(x)
+        x = self.bn(x)
+        x = self.relu(x)
+        x = self.dropout(x)
+        return x

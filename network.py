@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from layers import Conv, Convolutional_Block, DeConv
+from layers import Convolutional_Block, DeConvolutional_Block
 
 
 class Modele(nn.Module):
@@ -51,11 +51,11 @@ class Modele(nn.Module):
     
     # DECODEUR
         self.upsampling = nn.UpsamplingNearest2d(scale_factor=2) # si pas bon result changer le upsampling
-        self.deconv1 = Convolutional_Block(out_channels*16 , out_channels *8)
-        self.deconv2 = Convolutional_Block(out_channels *8 , out_channels *4)
-        self.deconv3 = Convolutional_Block(out_channels *4 , out_channels*2)
-        self.deconv4 = Convolutional_Block(out_channels*2 , out_channels)
-        self.deconv5 = Convolutional_Block(out_channels , 2)
+        self.deconv1 = DeConvolutional_Block(out_channels*16 , out_channels *8)
+        self.deconv2 = DeConvolutional_Block(out_channels *8 , out_channels *4)
+        self.deconv3 = DeConvolutional_Block(out_channels *4 , out_channels*2)
+        self.deconv4 = DeConvolutional_Block(out_channels*2 , out_channels)
+        self.deconv5 = DeConvolutional_Block(out_channels , 2)
 
         self.encodeur = nn.Sequential(
             self.conv1,

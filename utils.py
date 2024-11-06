@@ -1,5 +1,8 @@
 import os
 import csv
+import pandas as pd
+from torchvision.io import read_image
+import numpy as np
 
 def register_images(csv_name, output_path="./", data_path="./") -> None:
     files: list[str] = os.listdir(data_path)
@@ -26,6 +29,19 @@ def split_dataset(percentage=80, dataset="data.csv"):
     train.to_csv("train.csv", index=False)
     val.to_csv("val.csv", index=False)
 
+def class_weights(data_file):
+    # Compute the class weights
+    data = pd.read_csv(data_file)
+    mask = data["mask"]
+    w0 = 0
+    w1 = 0
+    for i in range(len(mask)):
+        file = mask[i]
+        img = read_image("data/"+file)
+        total_pixels = img.shape[1]*img.shape[2]
+        w1 += 10*img[0].sum()/total_pixels
+        w0 += (total_pixels - img[0].sum())/total_pixels
+    return [w0, w1]
 def main():
     register_images("data.csv", data_path="./data")
     split_dataset(percentage=80, dataset="data.csv")

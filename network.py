@@ -1,15 +1,16 @@
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from layers import Convolutional_Block, Self_Attn, Conv, DeConv
+from layers import Conv, Convolutional_Block, DeConv
+
 
 class Modele(nn.Module):
-    def __init__(self, input_shape = (256, 256), in_channels = 3, out_channels = 32):
+    def __init__(self, in_channels = 3, out_channels = 32):
         super(Modele, self).__init__()
-    
+        """
     # ENCODEUR
         # BLOC 1
         self.c1 = Conv(6,16)
@@ -40,100 +41,64 @@ class Modele(nn.Module):
         self.c21 = DeConv(16,2)
 
         self.logsoftmax = nn.LogSoftmax(dim=1)
+        """
 
-
-        self.convolutional_block1 = Convolutional_Block(in_channels, out_channels)
-        self.avg_pool = nn.AdaptiveAvgPool2d((128,128)) #output_size # pour le downsampling
-        
-        # BLOC 2
-        self.convolutional_block2 = Convolutional_Block(out_channels, out_channels * 2)
-        self.avg_pool2 = nn.AdaptiveAvgPool2d((64,64))
-        
-        # BLOC 3
-        self.convolutional_block3 = Convolutional_Block(out_channels*2 , out_channels*4)
-        self.avg_pool3 = nn.AdaptiveAvgPool2d((32,32))
-
-        # BLOC 4
-        self.convolutional_block4 = Convolutional_Block(out_channels*4 , out_channels*8)
-        self.avg_pool4 = nn.AdaptiveAvgPool2d((16,16))
-        
-    # ATTENTION BLOCK
-        self.attention_block = Self_Attn(in_dim = out_channels * 16, with_attn=True)
-                
+        self.max_pool = nn.MaxPool2d(kernel_size=(2,2),stride=(2,2)) #output_size # pour le downsampling
+        self.conv1 = Convolutional_Block(in_channels, out_channels)
+        self.conv2 = Convolutional_Block(out_channels, out_channels * 2)
+        self.conv3 = Convolutional_Block(out_channels*2 , out_channels*4)
+        self.conv4 = Convolutional_Block(out_channels*4 , out_channels*8)
+    
     # DECODEUR
-        
-        self.convolutional_block_decodeur1 = Convolutional_Block(out_channels*16 , out_channels *8)
-        self.convolutional_block_decodeur2 = Convolutional_Block(out_channels *8 , out_channels *4)
-        
-        self.convolutional_block_decodeur3 = Convolutional_Block(out_channels *4 , out_channels*2)
-        
-        self.convolutional_block_decodeur4 = Convolutional_Block(out_channels*2 , out_channels)
-        
-        self.convolutional_block_decodeur5 = Convolutional_Block(out_channels , 1)
+        self.upsampling = nn.UpsamplingNearest2d(scale_factor=2) # si pas bon result changer le upsampling
+        self.deconv1 = Convolutional_Block(out_channels*16 , out_channels *8)
+        self.deconv2 = Convolutional_Block(out_channels *8 , out_channels *4)
+        self.deconv3 = Convolutional_Block(out_channels *4 , out_channels*2)
+        self.deconv4 = Convolutional_Block(out_channels*2 , out_channels)
+        self.deconv5 = Convolutional_Block(out_channels , 2)
 
-        self.upsampling = nn.UpsamplingBilinear2d(scale_factor=2) # si pas bon result changer le upsampling
-        #upsampling pour augmenter taille puis pour les channels: (conv ou dedans on divise par 2 le nombre de channels) 
-        
+        self.encodeur = nn.Sequential(
+            self.conv1,
+            self.max_pool,
+            self.conv2,
+            self.max_pool,
+            self.conv3,
+            self.max_pool,
+            self.conv4,
+            self.max_pool
+        )
+
+        self.decodeur = nn.Sequential(
+            self.deconv1,
+            self.upsampling,
+            self.deconv2,
+            self.upsampling,
+            self.deconv3,
+            self.upsampling,
+            self.deconv4,
+            self.upsampling,
+            self.deconv5
+        )
     # SIGMOID
-        self.sigmoid = nn.Sigmoid()
-        
+        self.sigmoid = nn.LogSoftmax(dim=1)       
         
     
 
-    def forward(self, image1, image2):
+    def forward(self, image1, image2, with_attn=False):
+        
+        # Encode
+        encoded_im1 = self.encodeur(image1)
+        encoded_im2 = self.encodeur(image2)
+
+
+        # Combine encoded images
+        encode_stack = torch.concat((encoded_im1, encoded_im2), dim=1)  # Concat on channels
+
+        # Decode
+        decode = self.decodeur(encode_stack)
+        return self.sigmoid(decode)
+
         """
-        # Encode image 1
-        conv_block_1_im1 = self.convolutional_block1(image1)
-        avg_pool_1_im1 = self.avg_pool(conv_block_1_im1)
-        conv_block_2_im1 = self.convolutional_block2(avg_pool_1_im1)
-        avg_pool_2_im1 = self.avg_pool2(conv_block_2_im1)
-        
-        conv_block_3_im1 = self.convolutional_block3(avg_pool_2_im1)
-        avg_pool_3_im1 = self.avg_pool3(conv_block_3_im1)
-        
-        conv_block_4_im1 = self.convolutional_block4(avg_pool_3_im1)
-        avg_pool_4_im1 = self.avg_pool4(conv_block_4_im1)
-        
-        # Encode image 2
-        conv_block_1_im2 = self.convolutional_block1(image2)
-        avg_pool_1_im2 = self.avg_pool(conv_block_1_im2)
-        
-        conv_block_2_im2 = self.convolutional_block2(avg_pool_1_im2)
-        avg_pool_2_im2 = self.avg_pool2(conv_block_2_im2)
-        
-        conv_block_3_im2 = self.convolutional_block3(avg_pool_2_im2)
-        avg_pool_3_im2 = self.avg_pool3(conv_block_3_im2)
-        
-        conv_block_4_im2 = self.convolutional_block4(avg_pool_3_im2)
-        avg_pool_4_im2 = self.avg_pool4(conv_block_4_im2)
-
-        
-        output_encoder_combined = torch.concat((avg_pool_4_im1, avg_pool_4_im2), dim=1) #Concat on channels
-        
-        # Attention : image 1 + image 2
-        attention, mask = self.attention_block(output_encoder_combined) # MAYBE WE NEED TO CONCATENATE RATHEN THAN JUST ADDED THE TWO TERMS
-        #C'est pas un maybe, il faut le faire comme ca lol
-
-
-        # DECODEUR
-        
-        conv_block_1_dec = self.convolutional_block_decodeur1(attention)
-        conv_block_2_dec = self.convolutional_block_decodeur2(conv_block_1_dec)
-        
-        upsampling2 =self.upsampling(conv_block_2_dec)
-        conv_block_3_dec=self.convolutional_block_decodeur3(upsampling2)
-        
-        upsampling3 =self.upsampling(conv_block_3_dec)
-        conv_block_4_dec=self.convolutional_block_decodeur4(upsampling3)
-        
-        upsampling4 =self.upsampling(conv_block_4_dec)
-        conv_block_5_dec=self.convolutional_block_decodeur5(upsampling4)
-        
-        output_cnn = self.sigmoid(conv_block_5_dec)
-
-        return output_cnn, mask"""
-
-
         x = torch.cat((image1, image2), 1)
         x = self.c1(x)
         x = self.c2(x)
@@ -156,3 +121,4 @@ class Modele(nn.Module):
         x = self.c21(x)
         x = self.logsoftmax(x)
         return x
+        """

@@ -41,7 +41,7 @@ def class_weights(data_file):
         total_pixels = img.shape[1]*img.shape[2]
         w1 += 10*img[0].sum()/(255*total_pixels)
         w0 += (total_pixels - (img[0].sum())/255)/total_pixels
-    return [1/w0, 1/w1]
+    return [w0, w1]
 def main():
     register_images("data.csv", data_path="./data")
     split_dataset(percentage=80, dataset="data.csv")

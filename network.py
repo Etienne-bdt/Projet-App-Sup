@@ -55,7 +55,7 @@ class Modele(nn.Module):
         self.deconv2 = DeConvolutional_Block(out_channels *8 , out_channels *4)
         self.deconv3 = DeConvolutional_Block(out_channels *4 , out_channels*2)
         self.deconv4 = DeConvolutional_Block(out_channels*2 , out_channels)
-        self.deconv5 = DeConvolutional_Block(out_channels , 2)
+        self.deconv5 = DeConvolutional_Block(out_channels , 1)
 
         self.encodeur = nn.Sequential(
             self.conv1,
@@ -80,7 +80,7 @@ class Modele(nn.Module):
             self.deconv5
         )
     # SIGMOID
-        self.sigmoid = nn.LogSoftmax(dim=1)       
+        #self.sigmoid = nn.Sigmoid()
         
     
 
@@ -96,7 +96,8 @@ class Modele(nn.Module):
 
         # Decode
         decode = self.decodeur(encode_stack)
-        return self.sigmoid(decode)
+        return decode
+        #return self.sigmoid(decode)
 
         """
         x = torch.cat((image1, image2), 1)

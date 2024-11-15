@@ -60,10 +60,13 @@ class Modele(nn.Module):
         self.encodeur = nn.Sequential(
             self.conv1,
             self.max_pool,
+            nn.Dropout(0.2),
             self.conv2,
             self.max_pool,
+            nn.Dropout(0.2),
             self.conv3,
             self.max_pool,
+            nn.Dropout(0.2),
             self.conv4,
             self.max_pool
         )

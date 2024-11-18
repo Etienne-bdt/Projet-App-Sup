@@ -13,7 +13,7 @@ from layers import *
 
 # Bloc convolutionnel de base
 class ConvBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size=3, stride=1, padding=1):
+    def __init__(self, in_channels, out_channels, kernel_size=5, stride=1, padding=1):
         super(ConvBlock, self).__init__()
         self.conv = nn.Sequential(
             nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding),
@@ -132,14 +132,17 @@ class ChangeDetectUnet(nn.Module):
         self.enc1 = ConvBlock2(in_chan, out_chan) # 9,32
         self.enc2 = ConvBlock2(out_chan, out_chan * 2) # 32,64
         self.enc3 = ConvBlock2(out_chan * 2, out_chan * 4) # 64, 128
+        self.enc4 = ConvBlock2(out_chan * 4, out_chan * 8) # 128, 256
 
         # Pooling
         self.pool = nn.MaxPool2d(2)
 
         # Bottleneck
-        self.bottleneck = ConvBlock2(out_chan * 4, out_chan * 8) # 128,254
+        self.bottleneck = ConvBlock2(out_chan * 8, out_chan * 16) # 128,254
 
         # Decoder
+        self.up4 = nn.ConvTranspose2d(out_chan * 16, out_chan * 8, kernel_size=2, stride=2) # 254,128
+        self.dec4 = ConvBlock2(out_chan * 16, out_chan * 8)
         self.up3 = nn.ConvTranspose2d(out_chan * 8, out_chan * 4, kernel_size=2, stride=2) # 254,128
         self.dec3 = ConvBlock2(out_chan * 8, out_chan * 4)
         self.up2 = nn.ConvTranspose2d(out_chan * 4, out_chan * 2, kernel_size=2, stride=2) # 128,64
@@ -152,10 +155,10 @@ class ChangeDetectUnet(nn.Module):
     def forward(self, img1, img2):
         
         # différence absolue 
-        diff = torch.abs(img1 - img2)  # (batch, 3, 128, 128)
-
+        diff = img1-img2
+        diff_norm = torch.clamp((torch.abs(diff)-torch.mean(diff)),0,1)
         # on ajoute cette différence aux canaux d'entrée
-        x = torch.cat((img1, img2, diff), dim=1)  # (batch, 9, 128, 128)
+        x = torch.cat((img1, img2, diff_norm), dim=1)  # (batch, 9, 128, 128)
 
         # Encoder
         enc1 = self.enc1(x)
@@ -168,10 +171,17 @@ class ChangeDetectUnet(nn.Module):
 
         # Bottleneck
         pool3 = self.pool(enc3)
-        bottleneck = self.bottleneck(pool3)
+
+        enc4 = self.enc4(pool3)
+        pool4 = self.pool(enc4)
+
+        bottleneck = self.bottleneck(pool4)
 
         # Decoder
-        concat3 = torch.cat((self.up3(bottleneck), enc3), dim=1)
+        concat4 = torch.cat((self.up4(bottleneck), enc4), dim=1)
+        dec4 = self.dec4(concat4)
+
+        concat3 = torch.cat((self.up3(dec4), enc3), dim=1)
         dec3 = self.dec3(concat3)
         
         concat2=torch.cat((self.up2(dec3), enc2), dim=1)

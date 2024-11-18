@@ -39,7 +39,7 @@ def class_weights(data_file):
         file = mask[i]
         img = read_image("data/"+file)
         total_pixels = img.shape[1]*img.shape[2]
-        w1 += 10*img[0].sum()/(255*total_pixels)
+        w1 += 5*img[0].sum()/(255*total_pixels)
         w0 += (total_pixels - (img[0].sum())/255)/total_pixels
     return [w0, w1]
 def main():

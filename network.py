@@ -4,125 +4,191 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from layers import Convolutional_Block, DeConvolutional_Block
+from layers import *
 
 
-class Modele(nn.Module):
-    def __init__(self, in_channels = 3, out_channels = 32):
-        super(Modele, self).__init__()
-        """
-    # ENCODEUR
-        # BLOC 1
-        self.c1 = Conv(6,16)
-        self.c2 = Conv(16,16)
+####################################################################################################
+##                                            Test 1                                              ##
+####################################################################################################
 
-        self.c3 = Conv(16,32)
-        self.c4 = Conv(32,32)
-
-        self.c5 = Conv(32,64)
-        self.c6 = Conv(64,64)
-        self.c7 = Conv(64,64)
-
-        self.c8 = Conv(64,128)
-        self.c9 = Conv(128,128)
-        self.c10 = Conv(128,128)
-
-        self.c11 = DeConv(128,128)
-        self.c12 = DeConv(128,128)
-        self.c13 = DeConv(128,64)
-
-        self.c14 = DeConv(64,64)
-        self.c16 = DeConv(64,32)
-
-        self.c17 = DeConv(32,32)
-        self.c19 = DeConv(32,16)
-
-        self.c20 = DeConv(16,16)
-        self.c21 = DeConv(16,2)
-
-        self.logsoftmax = nn.LogSoftmax(dim=1)
-        """
-
-        self.max_pool = nn.MaxPool2d(kernel_size=(2,2),stride=(2,2)) #output_size # pour le downsampling
-        self.conv1 = Convolutional_Block(in_channels, out_channels)
-        self.conv2 = Convolutional_Block(out_channels, out_channels * 2)
-        self.conv3 = Convolutional_Block(out_channels*2 , out_channels*4)
-        self.conv4 = Convolutional_Block(out_channels*4 , out_channels*8)
-    
-    # DECODEUR
-        self.upsampling = nn.UpsamplingNearest2d(scale_factor=2) # si pas bon result changer le upsampling
-        self.deconv1 = DeConvolutional_Block(out_channels*16 , out_channels *8)
-        self.deconv2 = DeConvolutional_Block(out_channels *8 , out_channels *4)
-        self.deconv3 = DeConvolutional_Block(out_channels *4 , out_channels*2)
-        self.deconv4 = DeConvolutional_Block(out_channels*2 , out_channels)
-        self.deconv5 = DeConvolutional_Block(out_channels , 1)
-
-        self.encodeur = nn.Sequential(
-            self.conv1,
-            self.max_pool,
-            nn.Dropout(0.2),
-            self.conv2,
-            self.max_pool,
-            nn.Dropout(0.2),
-            self.conv3,
-            self.max_pool,
-            nn.Dropout(0.2),
-            self.conv4,
-            self.max_pool
+# Bloc convolutionnel de base
+class ConvBlock(nn.Module):
+    def __init__(self, in_channels, out_channels, kernel_size=5, stride=1, padding=1):
+        super(ConvBlock, self).__init__()
+        self.conv = nn.Sequential(
+            nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding),
+            nn.BatchNorm2d(out_channels),
+            nn.ReLU(inplace=True)
         )
 
-        self.decodeur = nn.Sequential(
-            self.deconv1,
-            self.upsampling,
-            self.deconv2,
-            self.upsampling,
-            self.deconv3,
-            self.upsampling,
-            self.deconv4,
-            self.upsampling,
-            self.deconv5
-        )
-    # SIGMOID
-        #self.sigmoid = nn.Sigmoid()
+    def forward(self, x):
+        return self.conv(x)
+
+# Encodeur partagé
+class SharedEncoder(nn.Module):
+    def __init__(self, in_channels, base_channels=32):
+        super(SharedEncoder, self).__init__()
+        self.conv1 = ConvBlock(in_channels, base_channels)
+        self.conv2 = ConvBlock(base_channels, base_channels * 2)
+        self.conv3 = ConvBlock(base_channels * 2, base_channels * 4)
+        self.pool = nn.MaxPool2d(2)
+
+    def forward(self, x):
+        enc1 = self.conv1(x)
+        enc2 = self.conv2(self.pool(enc1))
+        enc3 = self.conv3(self.pool(enc2))
+        return enc1, enc2, enc3
+
+# Décodeur U-Net avec supervision
+class Decoder(nn.Module):
+    def __init__(self, base_channels=32):
+        super(Decoder, self).__init__()
+        # Convolutions pour ajuster les canaux
+        self.reduce_channels_enc1 = nn.Conv2d(base_channels * 2, base_channels, kernel_size=1)
+        self.reduce_channels_enc2 = nn.Conv2d(base_channels * 4, base_channels * 2, kernel_size=1)
+        self.reduce_channels_enc3 = nn.Conv2d(base_channels * 8, base_channels * 4, kernel_size=1)
+
+        # Décodeur
+        self.up1 = nn.ConvTranspose2d(base_channels * 4, base_channels * 2, kernel_size=2, stride=2)
+        self.up2 = nn.ConvTranspose2d(base_channels * 2, base_channels, kernel_size=2, stride=2)
+        self.conv1 = ConvBlock(base_channels * 4, base_channels * 2)
+        self.conv2 = ConvBlock(base_channels * 2, base_channels)
+        self.final = nn.Conv2d(base_channels, 1, kernel_size=1)
+
+    def forward(self, enc1, enc2, enc3):
+        # Réduire les canaux pour correspondre aux attentes
+        enc1 = self.reduce_channels_enc1(enc1)
+        enc2 = self.reduce_channels_enc2(enc2)
+        enc3 = self.reduce_channels_enc3(enc3)
+
+        # Étape de décodeur
+        x = self.up1(enc3)  # Upsampling de enc3
+        x = torch.cat((x, enc2), dim=1)  # Concaténation avec enc2
+        x = self.conv1(x)  # Convolution
+
+        x = self.up2(x)  # Upsampling de x
+        x = torch.cat((x, enc1), dim=1)  # Concaténation avec enc1
+        x = self.conv2(x)  # Convolution
+
+        return self.final(x)
+
+
+# Modèle principal
+class DeeplySupervisedFusionNet(nn.Module):
+    def __init__(self, in_channels=3, base_channels=32):
+        super(DeeplySupervisedFusionNet, self).__init__()
+        self.encoder = SharedEncoder(in_channels, base_channels)
+        self.decoder = Decoder(base_channels)
+
+    def forward(self, img1, img2):
+        # Encodeurs pour les deux images
+        enc1_img1, enc2_img1, enc3_img1 = self.encoder(img1)
+        enc1_img2, enc2_img2, enc3_img2 = self.encoder(img2)
         
+        # print(f"enc1_img1:   {np.shape(enc1_img1)}")
+        # print(f"enc2_img1:   {np.shape(enc2_img1)}")
+        # print(f"enc3_img1:   {np.shape(enc3_img1)}")
+        # print(f"enc1_img2:   {np.shape(enc1_img2)}")
+        # print(f"enc2_img2:   {np.shape(enc2_img2)}")
+        # print(f"enc3_img2:   {np.shape(enc3_img2)}")
+        
+        # Fusion des caractéristiques (concaténation canal)
+        enc1_fused = torch.cat((enc1_img1, enc1_img2), dim=1)
+        #print(f"enc1_fusedv:   {np.shape(enc1_fused)}")
+        enc2_fused = torch.cat((enc2_img1, enc2_img2), dim=1)
+        #print(f"enc2_fused:   {np.shape(enc2_fused)}")
+        enc3_fused = torch.cat((enc3_img1, enc3_img2), dim=1)
+        #print(f"enc3_fused:   {np.shape(enc3_fused)}")
+
+        # Décodage et supervision profonde
+        out = self.decoder(enc1_fused, enc2_fused, enc3_fused)
+        return torch.sigmoid(out)  # Probabilités des changements
     
+    
+   
+####################################################################################################
+##                                            Test 2                                              ##
+####################################################################################################
 
-    def forward(self, image1, image2, with_attn=False):
-        
-        # Encode
-        encoded_im1 = self.encodeur(image1)
-        encoded_im2 = self.encodeur(image2)
+class ConvBlock2(nn.Module):
+    def __init__(self, in_channels, out_channels):
+        super(ConvBlock2, self).__init__()
+        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1)
+        self.bn1 = nn.BatchNorm2d(out_channels)
+        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1)
+        self.bn2 = nn.BatchNorm2d(out_channels)
 
-
-        # Combine encoded images
-        encode_stack = torch.concat((encoded_im1, encoded_im2), dim=1)  # Concat on channels
-
-        # Decode
-        decode = self.decodeur(encode_stack)
-        return decode
-        #return self.sigmoid(decode)
-
-        """
-        x = torch.cat((image1, image2), 1)
-        x = self.c1(x)
-        x = self.c2(x)
-        x = self.c3(x)
-        x = self.c4(x)
-        x = self.c5(x)
-        x = self.c6(x)
-        x = self.c7(x)
-        x = self.c8(x)
-        x = self.c9(x)
-        x = self.c10(x)
-        x = self.c11(x)
-        x = self.c12(x)
-        x = self.c13(x)
-        x = self.c14(x)
-        x = self.c16(x)
-        x = self.c17(x)
-        x = self.c19(x)
-        x = self.c20(x)
-        x = self.c21(x)
-        x = self.logsoftmax(x)
+    def forward(self, x):
+        x = F.relu(self.bn1(self.conv1(x)))
+        x = F.relu(self.bn2(self.conv2(x)))
         return x
-        """
+
+class ChangeDetectUnet(nn.Module):
+    def __init__(self, in_chan=9, out_chan=32):
+        
+        super(ChangeDetectUnet, self).__init__()
+
+        # Encoder
+        self.enc1 = ConvBlock2(in_chan, out_chan) # 9,32
+        self.enc2 = ConvBlock2(out_chan, out_chan * 2) # 32,64
+        self.enc3 = ConvBlock2(out_chan * 2, out_chan * 4) # 64, 128
+        self.enc4 = ConvBlock2(out_chan * 4, out_chan * 8) # 128, 256
+
+        # Pooling
+        self.pool = nn.MaxPool2d(2)
+
+        # Bottleneck
+        self.bottleneck = ConvBlock2(out_chan * 8, out_chan * 16) # 128,254
+
+        # Decoder
+        self.up4 = nn.ConvTranspose2d(out_chan * 16, out_chan * 8, kernel_size=2, stride=2) # 254,128
+        self.dec4 = ConvBlock2(out_chan * 16, out_chan * 8)
+        self.up3 = nn.ConvTranspose2d(out_chan * 8, out_chan * 4, kernel_size=2, stride=2) # 254,128
+        self.dec3 = ConvBlock2(out_chan * 8, out_chan * 4)
+        self.up2 = nn.ConvTranspose2d(out_chan * 4, out_chan * 2, kernel_size=2, stride=2) # 128,64
+        self.dec2 = ConvBlock2(out_chan * 4, out_chan * 2)
+        self.up1 = nn.ConvTranspose2d(out_chan * 2, out_chan, kernel_size=2, stride=2) # 64,32
+        self.dec1 = ConvBlock2(out_chan * 2, out_chan)
+
+        self.final = nn.Conv2d(out_chan, 1, kernel_size=1)
+
+    def forward(self, img1, img2):
+        
+        # différence absolue 
+        diff = img1-img2
+        diff_norm = torch.clamp((torch.abs(diff)-torch.mean(diff)),0,1)
+        # on ajoute cette différence aux canaux d'entrée
+        x = torch.cat((img1, img2, diff_norm), dim=1)  # (batch, 9, 128, 128)
+
+        # Encoder
+        enc1 = self.enc1(x)
+        pool1 = self.pool(enc1)
+        
+        enc2 = self.enc2(pool1)
+        pool2 =self.pool(enc2)
+        
+        enc3 = self.enc3(pool2)
+
+        # Bottleneck
+        pool3 = self.pool(enc3)
+
+        enc4 = self.enc4(pool3)
+        pool4 = self.pool(enc4)
+
+        bottleneck = self.bottleneck(pool4)
+
+        # Decoder
+        concat4 = torch.cat((self.up4(bottleneck), enc4), dim=1)
+        dec4 = self.dec4(concat4)
+
+        concat3 = torch.cat((self.up3(dec4), enc3), dim=1)
+        dec3 = self.dec3(concat3)
+        
+        concat2=torch.cat((self.up2(dec3), enc2), dim=1)
+        dec2 = self.dec2(concat2)
+        
+        concat1 = torch.cat((self.up1(dec2), enc1), dim=1)
+        dec1 = self.dec1(concat1)
+
+        out = torch.sigmoid(self.final(dec1))  # Sigmoid donne map de proba
+        return out
